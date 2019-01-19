@@ -26,6 +26,34 @@
         var: vpc_results
         verbosity: 2
 
+    - name: Create Security Group
+      ec2_group:
+        name: "{{ app_name }}-security-group"
+        description: "Security Group for Application {{ app_name }}"
+        vpc_id: "{{ vpc_results.vpc.id }}"
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            ports:
+              - 80
+              - 443
+              - 8080
+            cidr_ip: 0.0.0.0/0
+            rule_desc: "Allow Web Traffic"
+          - proto: tcp
+            ports:
+              - 22
+            cidr_ip: 0.0.0.0/0
+            rule_desc: "Allow SSH Traffic"
+        tags:
+          Name: "{{ app_name }}-security-group"
+      register: ec2_group_results
+
+    - name: Debug ec2_group_results
+      debug:
+        var: ec2_group_results
+        verbosity: 2
+
     - name: Create Subnets in VPC
       ec2_vpc_subnet:
         az: "{{ item.az }}"
