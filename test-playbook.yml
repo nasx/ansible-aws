@@ -4,6 +4,7 @@
   tasks:
     - name: Get Instance Facts
       ec2_instance_facts:
+        region: "{{ region }}"
         filters:
           "tag:Name": "{{ instance_name_filter }}"
       register: ec2_instance_facts
