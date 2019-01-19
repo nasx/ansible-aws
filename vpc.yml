@@ -1,0 +1,103 @@
+---
+- name: Create Application VPC & Associated Components
+  hosts: localhost
+  tasks:
+    - name: Include Subnet Definitions for Various AWS Regions
+      include_vars:
+        file: subnets/subnets-us-east-1.yml
+      when: region == "us-east-1"
+
+    - name: Create Application VPC
+      ec2_vpc_net:
+        region: "{{ region }}"
+        cidr_block: "10.250.0.0/16"
+        dns_hostnames: yes
+        dns_support: yes
+        name: "{{ app_name }}-vpc"
+        region: us-east-1
+        state: present
+      register: vpc_results
+      until: vpc_results.failed is not defined or vpc_results.failed == false
+      retries: 3
+      delay: 5
+
+    - name: Debug vpc_results
+      debug:
+        var: vpc_results
+        verbosity: 2
+
+    - name: Create Subnets in VPC
+      ec2_vpc_subnet:
+        az: "{{ item.az }}"
+        cidr: "{{ item.cidr }}"
+        region: "{{ item.region }}"
+        state: present
+        tags:
+          Name: "{{ item.name }}"
+        vpc_id: "{{ vpc_results.vpc.id }}"
+      register: subnet_results
+      until: subnet_results.failed is not defined or subnet_results.failed == false
+      retries: 3
+      delay: 5
+      with_items:
+        - "{{ subnets }}"
+
+    - name: Debug subnet_results
+      debug:
+        var: subnet_results
+        verbosity: 2
+
+    - name: Set my_vpc_subnets, rt_subnets
+      set_fact:
+        my_vpc_subnets: "{{ subnet_results.results | map(attribute='subnet') | flatten }}"
+        rt_subnets: []
+
+    - name: Debug my_vpc_subnets
+      debug:
+        var: my_vpc_subnets
+        verbosity: 2
+
+    - name: Debug rt_subnets
+      debug:
+        var: rt_subnets
+        verbosity: 2
+
+    - name: Create VPC Internet Gateway
+      ec2_vpc_igw:
+        region: "{{ region }}"
+        state: present
+        tags:
+          Name: "{{ app_name }}-igw"
+        vpc_id: "{{ vpc_results.vpc.id }}"
+      register: igw_results
+
+    - name: Debug igw_results
+      debug:
+        var: igw_results
+        verbosity: 2
+
+    - name: Get VPC Route Table Facts
+      ec2_vpc_route_table_facts:
+        region: "{{ region }}"
+        filters:
+          vpc-id: "{{ vpc_results.vpc.id }}"
+      register: rt_facts_results
+
+    - name: Debug rt_facts_results
+      debug:
+        var: rt_facts_results
+        verbosity: 2
+
+    - name: Setup VPC Route Table
+      ec2_vpc_route_table:
+        lookup: id
+        purge_routes: false
+        region: "{{ region }}"
+        route_table_id: "{{ rt_facts_results.route_tables[0].id }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ igw_results.gateway_id }}"
+        subnets: "{{ rt_subnets }}"
+        tags:
+          Name: "{{ app_name }}-route-table"
+        vpc_id: "{{ vpc_results.vpc.id }}"
