@@ -40,7 +40,7 @@
     - name: Create Instance(s) in EC2
       ec2_instance:
         region: "{{ region }}"
-        state: present
+        state: started
         key_name: "{{ ssh_key_name }}"
         instance_type: "{{ item.type }}"
         image_id: "{{ item.ami }}"
@@ -51,7 +51,7 @@
           assign_public_ip: true
         tags:
           Role: "{{ item.role }}"
-        wait: yes
+        wait: no
       register: ec2_instance_results
       with_items:
         - "{{ instances }}"
