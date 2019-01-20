@@ -23,9 +23,8 @@
       with_items:
         - "{{ ec2_instance_facts_results.instances }}"
 
-- name: Configure Tomcat on Instances
+- name: Ensure Hosts are Running
   hosts: tomcat
-  become: yes
   tasks:
     - name: Ensure Hosts Are Running
       become: no
@@ -34,6 +33,25 @@
         host: "{{ (ansible_ssh_host | default(ansible_host)) | default(inventory_hostname) }}"
         search_regex: OpenSSH
       connection: local
+
+- name: Deploy Application in Serial
+  hosts: tomcat
+  become: yes
+  serial: 1
+  tasks:
+    - name: Ensure Monitor is Disabled
+      file:
+        path: "{{ tomcat_webapps }}/ROOT/monitor.html"
+        state: absent
+
+    - name: Wait for HTTP Ping to Update
+      pause:
+        seconds: 10
+
+    - name: Stop Tomcat Service
+      service:
+        name: jws5-tomcat
+        state: stopped
 
     - name: Deploy Latest WAR Artifact
       maven_artifact:
@@ -51,3 +69,17 @@
 
     - name: Move WAR to Tomcat Webapps Folder
       command: "mv {{ maven_artifact_results.dest }} {{ tomcat_webapps }}"
+
+    - name: Start Tomcat Service
+      service:
+        name: jws5-tomcat
+        state: started
+
+    - name: Ensure Monitor is Enabled
+      copy:
+        src: files/monitor.html
+        dest: "{{ tomcat_webapps }}/ROOT/monitor.html"
+
+    - name: Wait for HTTP Ping to Update
+      pause:
+        seconds: 10
