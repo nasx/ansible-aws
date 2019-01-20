@@ -2,12 +2,26 @@
 - name: Create Dynamic Inventory
   hosts: localhost
   tasks:
+    - name: Gather Instance Facts
+      ec2_instance_facts:
+        region: "{{ region }}"
+        filters:
+          instance-state-name: running
+          "tag:Name": "*{{ app_name }}*"
+      register: ec2_instance_facts_results
+
+    - name: Debug ec2_instance_facts_results
+      debug:
+        var: ec2_instance_facts_results
+        verbosity: 2
+
     - name: Create Dynamic Inventory
       add_host:
-        name: "{{ item.name }}.{{ app_name }}.{{ dns_zone }}"
-        groups: "{{ item.role }}"
+        name: "{{ item.tags.Name }}"
+        groups: "{{ item.tags.Role }}"
+        ansible_ssh_host: "{{ item.public_ip_address }}"
       with_items:
-        - "{{ instances }}"
+        - "{{ ec2_instance_facts_results.instances }}"
 
 - name: Configure Tomcat on Instances
   hosts: tomcat
