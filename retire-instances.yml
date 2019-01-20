@@ -43,6 +43,7 @@
         name: "{{ app_name }}-elb"
         region: "{{ region }}"
         state: absent
+        wait: yes
     
     - name: Delete DNS Entries in Route53
       route53:
@@ -70,6 +71,6 @@
         instance_ids:
           - "{{ item.instance_id }}"
         state: absent
-        wait: no
+        wait: yes
       with_items:
         - "{{ my_instance_facts }}"
