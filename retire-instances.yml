@@ -1,0 +1,75 @@
+---
+- name: Delete Application Instances & Associated Components
+  hosts: localhost
+  tasks:
+    - name: Get Instance Facts
+      ec2_instance_facts:
+        region: "{{ region }}"
+        filters:
+          "tag:Name": "{{ item.name }}.{{ app_name }}.{{ dns_zone }}"
+          instance-state-name: running
+      register: ec2_instance_facts_results
+      with_items:
+        - "{{ instances }}"
+    
+    - name: Debug ec2_instance_facts_results
+      debug:
+        var: ec2_instance_facts_results
+        verbosity: 2
+    
+    - name: Set my_instance_facts
+      set_fact:
+        my_instance_facts: "{{ ec2_instance_facts_results.results | map(attribute='instances') | flatten }}"
+    
+    - name: Debug my_instance_facts
+      debug:
+        var: my_instance_facts
+        verbosity: 2
+    
+    - name: Get ELB Facts
+      ec2_elb_facts:
+        names:
+          - "{{ app_name }}-elb"
+        region: "{{ region }}"
+      register: ec2_elb_facts_results
+    
+    - name: Debug ec2_elb_facts_results
+      debug:
+        var: ec2_elb_facts_results
+        verbosity: 2
+
+    - name: Delete Load Balancer
+      ec2_elb_lb:
+        name: "{{ app_name }}-elb"
+        region: "{{ region }}"
+        state: absent
+    
+    - name: Delete DNS Entries in Route53
+      route53:
+        state: absent
+        zone: "{{ dns_zone }}"
+        record: "{{ item.tags.Name }}."
+        type: A
+        value: "{{ item.public_ip_address }}"
+      with_items:
+        - "{{ my_instance_facts }}"
+    
+    - name: Delete ELB Alias
+      route53:
+        state: absent
+        zone: "{{ dns_zone }}"
+        record: "app.{{ app_name }}.{{ dns_zone }}."
+        type: A
+        value: "{{ ec2_elb_facts_results.elbs[0].hosted_zone_name }}"
+        alias: true
+        alias_hosted_zone_id: "{{ ec2_elb_facts_results.elbs[0].hosted_zone_id }}"
+    
+    - name: Delete Instance(s) in EC2
+      ec2_instance:
+        region: "{{ region }}"
+        instance_ids:
+          - "{{ item.instance_id }}"
+        state: absent
+        wait: no
+      with_items:
+        - "{{ my_instance_facts }}"
