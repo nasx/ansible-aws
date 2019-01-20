@@ -1,0 +1,40 @@
+---
+- name: Create Dynamic Inventory
+  hosts: localhost
+  tasks:
+    - name: Create Dynamic Inventory
+      add_host:
+        name: "{{ item.name }}.{{ app_name }}.{{ dns_zone }}"
+        groups: "{{ item.role }}"
+      with_items:
+        - "{{ instances }}"
+
+- name: Configure Tomcat on Instances
+  hosts: tomcat
+  become: yes
+  tasks:
+    - name: Ensure Hosts Are Running
+      become: no
+      wait_for:
+        port: 22
+        host: "{{ (ansible_ssh_host | default(ansible_host)) | default(inventory_hostname) }}"
+        search_regex: OpenSSH
+      connection: local
+
+    - name: Configure JWS Repos
+      copy:
+        src: files/jws.repo
+        dest: /etc/yum.repos.d/jws.repo
+
+    - name: Install Packages
+      yum:
+        name:
+          - "java"
+          - "@jws5"
+        state: latest
+        update_cache: yes
+
+    - name: Start Tomcat
+      service:
+        name: jws5-tomcat
+        state: started

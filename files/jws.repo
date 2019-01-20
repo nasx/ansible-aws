@@ -1,0 +1,9 @@
+[jb-coreservices-1-for-rhel-7-server-rpms]
+name=jb-coreservices-1-for-rhel-7-server-rpms
+baseurl=http://repos.aws.redhat-demo.com/repos/jb-coreservices-1-for-rhel-7-server-rpms/
+enabled=1
+
+[jws-5-for-rhel-7-server-rpms]
+name=jws-5-for-rhel-7-server-rpms
+baseurl=http://repos.aws.redhat-demo.com/repos/jws-5-for-rhel-7-server-rpms/
+enabled=1
