@@ -121,10 +121,19 @@
         state: present
         subnets: "{{ elb_subnet_ids }}"
         security_group_names: "{{ app_name }}-security-group"
+        connection_draining_timeout: 5
         listeners:
           - protocol: http
             load_balancer_port: 8080
             instance_port: 8080
+        health_check:
+          ping_protocol: http
+          ping_port: 8080
+          ping_path: /monitor.html
+          response_timeout: 5
+          interval: 15
+          unhealthy_threshold: 2
+          healthy_threshold: 2
       register: my_elb
     
     - name: Debug my_elb
