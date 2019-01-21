@@ -70,6 +70,9 @@
         var: my_instances
         verbosity: 2
     
+    # Use instance id to get around filters for instance state
+    # since the instances are pending || running
+
     - name: Gather Instance Facts
       ec2_instance_facts:
         region: "{{ region }}"
@@ -78,7 +81,7 @@
       register: ec2_instance_facts_results
       with_items:
         - "{{ my_instances }}"
-    
+
     - name: Debug ec2_instance_facts_results
       debug:
         var: ec2_instance_facts_results
@@ -92,6 +95,14 @@
       debug:
         var: my_instance_facts
         verbosity: 2
+
+    - name: Create Dynamic Inventory
+      add_host:
+        name: "{{ item.tags.Name }}"
+        groups: "{{ item.tags.Role }}"
+        ansible_ssh_host: "{{ item.public_ip_address }}"
+      with_items:
+        - "{{ my_instance_facts }}"
 
     - name: Create DNS Entries in Route53
       route53:
@@ -161,3 +172,15 @@
         alias: true
         alias_hosted_zone_id: "{{ my_elb.elb.hosted_zone_id }}"
         overwrite: yes
+
+- name: Wait for SSH on Instances
+  hosts: tomcat
+  gather_facts: no
+  tasks:
+    - name: Ensure Hosts are Accessible
+      become: no
+      wait_for:
+        port: 22
+        host: "{{ (ansible_ssh_host | default(ansible_host)) | default(inventory_hostname) }}"
+        search_regex: OpenSSH
+      connection: local
