@@ -1,0 +1,32 @@
+---
+- name: Build/Deploy Application with Maven
+  hosts: repos.aws.redhat-demo.com
+  become: no
+  tasks:
+    - name: Clone Repository
+      git:
+        repo: "{{ git_repository }}"
+        dest: "{{ app_build_path }}/{{ app_build_name }}"
+
+    - name: Package App
+      shell: "cd {{ app_build_path }}/{{ app_build_name }} && mvn package"
+      register: mvn_package
+
+    - name: Debug mvn_package
+      debug:
+        var: mvn_package
+        verbosity: 2
+
+    - name: Deploy App to Nexus
+      shell: "cd {{ app_build_path }}/{{ app_build_name }} && mvn deploy"
+      register: mvn_deploy
+
+    - name: Debug mvn_deploy
+      debug:
+        var: mvn_deploy
+        verbosity: 2
+
+    - name: Cleanup Build Directory
+      file:
+        path: "{{ app_build_path }}/{{ app_build_name }}"
+        state: absent
